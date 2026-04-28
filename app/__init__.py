@@ -5,7 +5,9 @@ from app.routes.journal_routes import journal_bp
 
 def create_app():
     app = Flask(__name__)
-    CORS(app)
+    CORS(app, resources={r"/*": {"origins": "*"}},
+         allow_headers=["Content-Type", "Authorization"],
+         methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"])
     Base.metadata.create_all(bind=engine)
     _seed_admin()
     app.register_blueprint(journal_bp)

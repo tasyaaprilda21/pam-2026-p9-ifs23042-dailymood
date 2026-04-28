@@ -56,6 +56,7 @@ def analyze_journal(journal_id: int):
             "mood": "...",
             "advice": "..."
         }}
+        Jawab hanya dengan JSON saja, tanpa teks tambahan apapun.
         """
 
         result = generate_from_llm(prompt)
