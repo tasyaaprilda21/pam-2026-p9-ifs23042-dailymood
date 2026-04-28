@@ -1,72 +1,50 @@
-from app.extensions import SessionLocal
-from app.models.journal import Journal
-from app.models.user import User
-from app.services.llm_service import generate_from_llm
-from app.utils.parser import parse_llm_response
+from flask import Blueprint, request, jsonify
+from app.services.journal_service import (
+    login_user,
+    get_all_journals,
+    create_journal,
+    analyze_journal
+)
 
-def login_user(username: str, password: str):
-    session = SessionLocal()
-    try:
-        user = session.query(User).filter_by(
-            username=username,
-            password=password
-        ).first()
-        if not user:
-            return None
-        return {"id": user.id, "username": user.username}
-    finally:
-        session.close()
+journal_bp = Blueprint("journal", __name__)
 
-def get_all_journals(user_id: int):
-    session = SessionLocal()
-    try:
-        journals = session.query(Journal).filter_by(user_id=user_id)\
-            .order_by(Journal.created_at.desc()).all()
-        return [j.to_dict() for j in journals]
-    finally:
-        session.close()
+@journal_bp.route("/", methods=["GET"])
+def index():
+    return "DailyMood API telah berjalan!"
 
-def create_journal(user_id: int, title: str, content: str):
-    session = SessionLocal()
-    try:
-        journal = Journal(user_id=user_id, title=title, content=content)
-        session.add(journal)
-        session.commit()
-        return journal.to_dict()
-    except Exception as e:
-        session.rollback()
-        raise e
-    finally:
-        session.close()
+@journal_bp.route("/auth/login", methods=["POST"])
+def login():
+    data = request.get_json()
+    username = data.get("username")
+    password = data.get("password")
+    if not username or not password:
+        return jsonify({"error": "Username dan password wajib diisi"}), 400
+    user = login_user(username, password)
+    if not user:
+        return jsonify({"message": "Username atau password salah!"}), 401
+    return jsonify({"message": "Login berhasil!", "user": user}), 200
 
-def analyze_journal(journal_id: int):
-    session = SessionLocal()
-    try:
-        journal = session.query(Journal).filter_by(id=journal_id).first()
-        if not journal:
-            return None
+@journal_bp.route("/journals/", methods=["GET"])
+def get_journals():
+    user_id = request.args.get("user_id")
+    if not user_id:
+        return jsonify({"error": "user_id wajib diisi"}), 400
+    data = get_all_journals(user_id=int(user_id))
+    return jsonify({"data": data}), 200
 
-        prompt = f"""
-        Dalam format JSON, analisis jurnal harian berikut dan berikan mood dan saran.
-        Judul: {journal.title}
-        Isi: {journal.content}
+@journal_bp.route("/journals/", methods=["POST"])
+def add_journal():
+    data = request.get_json()
+    result = create_journal(
+        user_id=data.get("user_id"),
+        title=data.get("title"),
+        content=data.get("content")
+    )
+    return jsonify({"message": "Jurnal berhasil disimpan!", "data": result}), 201
 
-        Format:
-        {{
-            "mood": "...",
-            "advice": "..."
-        }}
-        """
-
-        result = generate_from_llm(prompt)
-        ai_data = parse_llm_response(result)
-
-        journal.mood_result = ai_data.get("mood", "-")
-        journal.ai_advice = ai_data.get("advice", "-")
-        session.commit()
-        return journal.to_dict()
-    except Exception as e:
-        session.rollback()
-        raise e
-    finally:
-        session.close()
+@journal_bp.route("/journals/<int:journal_id>/analyze", methods=["POST"])
+def analyze(journal_id):
+    result = analyze_journal(journal_id)
+    if not result:
+        return jsonify({"message": "Jurnal tidak ditemukan!"}), 404
+    return jsonify({"message": "Analisis berhasil!", "data": result}), 200
