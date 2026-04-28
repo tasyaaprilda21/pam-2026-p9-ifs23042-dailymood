@@ -1,22 +1,22 @@
-from datetime import datetime
-from . import db
+from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey
+from datetime import datetime, timezone
+from app.extensions import Base
 
-class User(db.Model):
+class User(Base):
     __tablename__ = 'users'
-    id = db.Column(db.Integer, primary_key=True)
-    username = db.Column(db.String(80), unique=True, nullable=False)
-    password = db.Column(db.String(200), nullable=False)
-    journals = db.relationship('Journal', backref='user', lazy=True)
+    id = Column(Integer, primary_key=True)
+    username = Column(String(80), unique=True, nullable=False)
+    password = Column(String(200), nullable=False)
 
-class Journal(db.Model):
+class Journal(Base):
     __tablename__ = 'journals'
-    id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
-    title = db.Column(db.String(200), nullable=False)
-    content = db.Column(db.Text, nullable=False)
-    mood_result = db.Column(db.String(100), nullable=True)
-    ai_advice = db.Column(db.Text, nullable=True)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey('users.id'))
+    title = Column(String(200))
+    content = Column(Text)
+    mood_result = Column(String(100), nullable=True)
+    ai_advice = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
     def to_dict(self):
         return {
